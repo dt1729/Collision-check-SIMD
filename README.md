@@ -13,8 +13,27 @@ SIMDop algorithm:
     - Use center of polygons to cluster the C-space polygons.
     - Read more into how to do BNC.
     - Ask authors what's up with their polygon implementation that they did not mention in paper.
+    - [Batch Neural Clustering]() algorithm:
+      - initialise points $\mathbb{R}^m$ and prototypes $\mathbb{R}^n$ 
+      - $\epsilon$ = 1e-5 x BoundingBoxSize
+      - while (movement of prototypes < $\epsilon$)
+        - Sort the protypes using a Rank matrix which is populated for every prototype with every point. $k_{ij} = |{w_k : d(x_j, w_k) < d(x_j, w_i)}| \in {0, n}$
+        - Compute new positions for the prototypes:
+    
+        ```math
+        w_i := \frac{{\sum_{j=0}^{m} h_{\lambda}(k_{ij})x_j}}{{\sum_{j=0}^{m} h_{\lambda}(k_{ij})}}
+        ```
+      - Here $h_{\lambda}(k) > 0$ and it's a monotonically decreasing function($e^\frac{k}{\lambda}$) where $\lambda_{0} = \frac{n}{2}$ and reduction $\lambda(t) = \lambda_{0}(\frac{0.01}{\lambda_0})^\frac{t}{t_{max}}$.
+  - SIMD Implementation: 
+<p align="center">
+  <img src="BNG_simd.png" alt="SIMD Pseudocode" width="400" align="center" />
+</p>
+
 - Traverse BVH:
-  - 
+  - Overall Algorithm:
+<p align="center">
+  <img src="BVH_traversal.png" alt="BVH Traversal" width="400" align="center" />
+</p>
   - Intersection Algorithm: 
     ```cpp
     _mm512 endResult
