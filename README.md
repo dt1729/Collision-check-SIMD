@@ -25,7 +25,7 @@ SIMDop algorithm:
 
 - Traverse BVH:
   - Intersection Algorithm: 
-  
+
 ```cpp
 _mm512 endResult
 for (auto i = 0; i != k/2; i++){
