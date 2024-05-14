@@ -19,7 +19,7 @@ class abstract_polygon{
         virtual void update_properties(point p, int idx) = 0;
         virtual abstract_polygon* return_object_pointer() = 0;
         virtual abstract_polygon& operator+(abstract_polygon& p2) = 0;
-        virtual bool contains(abstract_polygon& p2) = 0;
+        virtual bool contains(point *p) = 0;
         virtual float volume() = 0;
 };
 
@@ -50,8 +50,17 @@ class AABB : public abstract_polygon{
             this->points[idx] = std::move(p);
         }
 
-        abstract_polygon* return_object_pointer(){
+        abstract_polygon* return_object_pointer() override{
             return this;
         }
 
+        float volume() override{
+            return (_x_max-_x_min)*(_y_max - _y_min)*(_z_max - _z_min);
+        }
+        
+        bool contains(point *p) override{ 
+            return (p->_x < this->_x_max && p->_x > this->_x_min)&&
+                   (p->_y < this->_y_max && p->_y > this->_y_min)&&
+                   (p->_z < this->_z_max && p->_z > this->_z_min);
+        }
 };
