@@ -32,6 +32,7 @@ class AABB : public polygon{
     public:
 
     float _x_centroid, _y_centroid, _z_centroid;
+    float _x_range, _y_range, _z_range;
 
     AABB(point p_min, point p_max)
         : _x_min(p_min._x), _y_min(p_min._y), _z_min(p_min._z),

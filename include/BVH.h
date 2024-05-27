@@ -21,18 +21,30 @@ struct node{
     std::vector<node*> children;
     
     enum SplitAxis {X, Y, Z} _split_axis;
+    float _x_range, _y_range, _z_range;
 
     float _volume;
     AABB  _region;
     bool isLeaf;
 
-    node(std::vector<polygon*> objects, SplitAxis ax): _objects(objects)
+    node(std::vector<polygon*> objects, AABB bbox): 
+    _objects(objects), _region(bbox)
     {
         _sorted_objects = _objects;
 
+        if(_x_range > _y_range && _x_range > _z_range){
+            _split_axis = X;
+        }
+        else if(_y_range > _x_range && _y_range > _z_range){
+            _split_axis = Y;
+        }
+        else if(_z_range > _x_range && _z_range > _y_range){
+            _split_axis = Z;
+        }
+
         __gnu_parallel::sort(_sorted_objects.begin(),
                              _sorted_objects.end(),
-                             [this, ax](polygon* p1, polygon* p2){ return _return_value(ax, p1) > _return_value(ax, p2);});
+                             [this](polygon* p1, polygon* p2){ return _return_value(_split_axis, p1) > _return_value(_split_axis, p2);});
     }
 
     float _return_value(SplitAxis ax, polygon* p){
@@ -58,22 +70,25 @@ class BVH{
         enum SplitAxis {X, Y, Z} _split_axis;  
 
     public:
-        void create_BVH(){
-
-            if(env._x_range > env._y_range && env._x_range > env._z_range){
-                _split_axis = X;
-            }
-            else if(env._y_range > env._x_range && env._y_range > env._z_range){
-                _split_axis = Y;
-            }
-            else if(env._z_range > env._x_range && env._z_range > env._y_range){
-                _split_axis = Z;
-            }
+        node* initialise_BVH(){
 
             node* BVHNode = new node(env._objects, _split_axis);
+            return BVHNode
         }
 
+        void create_BVH(node* root){
 
-    protected:
-        void 
+            /**
+             * @brief Add branching nodes and call create_BVH recursively on them.
+             * 
+             */
+            for(int i = 0; i < branching; i++){
+                /*Create sub list of Objects
+                  Create Bounding box for these objects {min(AABBs), max(AABBs)}
+                 */
+                node* childNode = new node(/*Objects in split axis range take objects from sorted array in root node*/, /*AABB bounding box for the complete set of objects, so min(AABBs), max(AABBs)*/);
+                create_BVH(childNode);
+                root->children.push_back(childNode);
+            }
+        }
 };
