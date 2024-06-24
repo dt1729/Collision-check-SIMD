@@ -21,18 +21,17 @@ class polygon{
         virtual bool contains(point *p) = 0;
         virtual float volume() = 0;
         virtual float surface_area() = 0;
+        float _x_min, _y_min, _z_min;
+        float _x_max, _y_max, _z_max;
         float _x_centroid, _y_centroid, _z_centroid;
 };
 
 class AABB : public polygon{
-    private:
+    public:
         float _x_min, _y_min, _z_min;
         float _x_max, _y_max, _z_max;
-
-    public:
-
-    float _x_centroid, _y_centroid, _z_centroid;
-    float _x_range, _y_range, _z_range;
+        float _x_centroid, _y_centroid, _z_centroid;
+        float _x_range, _y_range, _z_range;
 
     AABB(point p_min, point p_max)
         : _x_min(p_min._x), _y_min(p_min._y), _z_min(p_min._z),

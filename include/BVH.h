@@ -26,7 +26,7 @@ struct node{
     AABB  _region;
     bool isLeaf;
 
-    node(std::vector<polygon*> objects, AABB bbox): 
+    node(std::vector<std::pair<polygon*, bool>> objects, AABB bbox): 
     _objects(objects), _region(bbox)
     {
         if(_x_range > _y_range && _x_range > _z_range){
@@ -63,7 +63,6 @@ class BVH{
         __m256 endResult; 
         Environment env;
         std::vector<node> treeNodes;
-        int branching = 4; 
         float _threshold;
         enum SplitAxis {X, Y, Z} _split_axis;  
 
@@ -74,25 +73,63 @@ class BVH{
             treeNodes.push_back(node(env._objects, AABB(p1, p2)));
         }
 
-        void create_BVH(node* root, float volume){
+        void create_BVH(node* root){
             /**
              * @brief Add branching nodes and call create_BVH recursively on them.
              * 
              */
             
-            if(volume < this->_threshold){
+            if(root->_objects.size() < 1){
+                root->isLeaf = true;
                 return;
             }
 
-            for(int i = 0; i < branching; i++){
+            for(int i = 0; i < 2; i++){
                 /*Create sub list of Objects
                   Create Bounding box for these objects {min(AABBs), max(AABBs)}
                  */
-                
+                std::vector<std::pair<polygon*, bool>> objects;
+                float _running_x_min = INFINITY, _running_y_min = INFINITY, _running_z_min = INFINITY;
+                float _running_x_max = INFINITY, _running_y_max = INFINITY, _running_z_max = INFINITY;
+                point min_pt(root->_region._x_min, root->_region._y_min, root->_region._z_min),\
+                      max_pt(root->_region._x_max, root->_region._y_max, root->_region._z_max);
 
-                node* childNode = new node( /*Objects in split axis range take objects from sorted array in root node*/, std::min/*AABB bounding box for the complete set of objects, so min(AABBs), max(AABBs)*/);
+                for(auto k : root->_objects){
+                    if (i ==0 && k.second && (root->_return_value(root->_split_axis, k.first) < root->_return_value(root->_split_axis, &root->_region))){
+                        objects.push_back(std::make_pair(k.first, true));
+                        k.second = false;
+
+                        if(k.first->_x_min < _running_x_min && k.first->_y_min < _running_y_min && k.first->_z_min < _running_z_min){
+                            min_pt = point(k.first->_x_min, k.first->_y_min, k.first->_z_min);
+                            _running_x_min = k.first->_x_min; _running_y_min = k.first->_y_min; _running_z_min = k.first->_z_min;
+                        }
+                        else if(k.first->_x_max >= _running_x_max && k.first->_y_max >= _running_y_max && k.first->_z_max >= _running_z_max){
+                            max_pt = point(k.first->_x_max, k.first->_y_max, k.first->_z_max);
+                            _running_x_max = k.first->_x_max; _running_y_max = k.first->_y_max; _running_z_max = k.first->_z_max;
+                        }
+                    }
+                    else if (i == 1 && k.second && (root->_return_value(root->_split_axis, k.first) > root->_return_value(root->_split_axis, &root->_region))){
+                        objects.push_back(std::make_pair(k.first, true));
+                        k.second = false;
+
+                        if(k.first->_x_min < _running_x_min && k.first->_y_min < _running_y_min && k.first->_z_min < _running_z_min){
+                            min_pt = point(k.first->_x_min, k.first->_y_min, k.first->_z_min);
+                            _running_x_min = k.first->_x_min; _running_y_min = k.first->_y_min; _running_z_min = k.first->_z_min;
+                        }
+                        else if(k.first->_x_max >= _running_x_max && k.first->_y_max >= _running_y_max && k.first->_z_max >= _running_z_max){
+                            max_pt = point(k.first->_x_max, k.first->_y_max, k.first->_z_max);
+                            _running_x_max = k.first->_x_max; _running_y_max = k.first->_y_max; _running_z_max = k.first->_z_max;
+                        }
+                    }
+                }
+
+                node* childNode = new node(objects /*Objects in split axis range take objects from sorted array in root node*/,\
+                                           AABB(min_pt, max_pt) /*AABB bounding box for the complete set of objects, so min(AABBs), max(AABBs)*/
+                                           );
+
                 create_BVH(childNode);
                 root->children.push_back(childNode);
             }
+            root->isLeaf = false;
         }
 };
