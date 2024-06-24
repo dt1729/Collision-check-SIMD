@@ -90,7 +90,7 @@ class BVH{
                  */
                 std::vector<std::pair<polygon*, bool>> objects;
                 float _running_x_min = INFINITY, _running_y_min = INFINITY, _running_z_min = INFINITY;
-                float _running_x_max = INFINITY, _running_y_max = INFINITY, _running_z_max = INFINITY;
+                float _running_x_max = -INFINITY, _running_y_max = -INFINITY, _running_z_max = -INFINITY;
                 point min_pt(root->_region._x_min, root->_region._y_min, root->_region._z_min),\
                       max_pt(root->_region._x_max, root->_region._y_max, root->_region._z_max);
 
