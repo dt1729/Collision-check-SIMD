@@ -24,7 +24,10 @@ struct node{
 
     float _volume;
     AABB  _region;
-    bool isLeaf;
+
+    bool isLeaf(){
+        return (children.size() == 0)? true : false; 
+    }
 
     node(std::vector<std::pair<polygon*, bool>> objects, AABB bbox): 
     _objects(objects), _region(bbox)
@@ -88,17 +91,17 @@ class BVH{
                 /*Create sub list of Objects
                   Create Bounding box for these objects {min(AABBs), max(AABBs)}
                  */
-                std::vector<std::pair<polygon*, bool>> objects;
+                std::vector<std::pair<polygon*, bool>> objects; // Pair of polygon's that are already used for a child node or not.
                 float _running_x_min = INFINITY, _running_y_min = INFINITY, _running_z_min = INFINITY;
                 float _running_x_max = -INFINITY, _running_y_max = -INFINITY, _running_z_max = -INFINITY;
                 point min_pt(root->_region._x_min, root->_region._y_min, root->_region._z_min),\
                       max_pt(root->_region._x_max, root->_region._y_max, root->_region._z_max);
 
                 for(auto k : root->_objects){
-                    if (i ==0 && k.second && (root->_return_value(root->_split_axis, k.first) < root->_return_value(root->_split_axis, &root->_region))){
+                    if (i == 0 && k.second && (root->_return_value(root->_split_axis, k.first) < root->_return_value(root->_split_axis, &root->_region))){
                         objects.push_back(std::make_pair(k.first, true));
                         k.second = false;
-
+                        // The internal conditions create a tight bounding box for the Node
                         if(k.first->_x_min < _running_x_min && k.first->_y_min < _running_y_min && k.first->_z_min < _running_z_min){
                             min_pt = point(k.first->_x_min, k.first->_y_min, k.first->_z_min);
                             _running_x_min = k.first->_x_min; _running_y_min = k.first->_y_min; _running_z_min = k.first->_z_min;
@@ -111,7 +114,7 @@ class BVH{
                     else if (i == 1 && k.second && (root->_return_value(root->_split_axis, k.first) > root->_return_value(root->_split_axis, &root->_region))){
                         objects.push_back(std::make_pair(k.first, true));
                         k.second = false;
-
+                        // The internal conditions create a tight bounding box for the Node
                         if(k.first->_x_min < _running_x_min && k.first->_y_min < _running_y_min && k.first->_z_min < _running_z_min){
                             min_pt = point(k.first->_x_min, k.first->_y_min, k.first->_z_min);
                             _running_x_min = k.first->_x_min; _running_y_min = k.first->_y_min; _running_z_min = k.first->_z_min;
@@ -131,5 +134,46 @@ class BVH{
                 root->children.push_back(childNode);
             }
             root->isLeaf = false;
+        }
+
+        bool check_collision(node* root){
+            bool check = BVHtraversal(root->children[0], root->children[1]);
+            return check;
+        }
+
+        /**
+         * @brief BVH traversal function that implements collision checking and returns two nodes that are under collision
+         * 
+         * @param a 1st child of the root node
+         * @param b 2nd child of the root node
+         * @return std::vector<std::pair<node*, node*>> 
+         */
+        std::vector<std::pair<node*, node*>> BVHtraversal(node* a, node* b){
+            if(a->isLeaf() && b->isLeaf()){
+                checkPrimitives(a, b);
+            }
+            else if (a->isLeaf()){
+                for(auto n : b->children){
+                    if(checkOverlap(a->_region, n->_region)){
+                        return BVHtraversal(a, n);
+                    }
+                }
+            }
+            else if (b->isLeaf()){
+                for(auto n : a->children){
+                    if(checkOverlap(n->_region, b->_region)){
+                        return BVHtraversal(n, b);
+                    }
+                }
+            }
+            else{
+                for(auto n1 : a->children){
+                    for(auto n2 : b->children){
+                        if(checkOverlap(n1, n2)){
+                            return BVHtraversal(n1, n2);
+                        }
+                    }
+                }
+            }
         }
 };
