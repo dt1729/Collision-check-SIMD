@@ -5,6 +5,7 @@
 
 #include "AABB.h"
 #include "polygon.h"
+#include <x86intrin.h>
 
 struct Environment{
     public:
@@ -175,5 +176,19 @@ class BVH{
                     }
                 }
             }
+        }
+
+        __m256 BVHintersection_SIMD(std::vector<__m256> a, std::vector<__m256> b){
+            __m256 endResult;
+            for(auto i = 0; i != a.size()/2; i++){
+                __m256 resL = _mm256_cmp_ps(a[i], b[i], _CMP_LT_OS);
+                __m256 resH = _mm256_cmp_ps(a[a.size()/2 + i], b[a.size()/2 + i], _CMP_GT_OS);
+                __m256 tempRes = _mm256_kor(resL, resH);
+                endResult = _mm256_kor(endResult, tempRes);
+                if(endResult == 65535){
+                    break;
+                }
+            }
+            return endResult;
         }
 };
