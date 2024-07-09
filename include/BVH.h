@@ -178,14 +178,16 @@ class BVH{
             }
         }
 
-        __m256 BVHintersection_SIMD(std::vector<__m256> a, std::vector<__m256> b){
-            __m256 endResult;
+        __m256d BVHintersection_SIMD(std::vector<__m256d> a, std::vector<__m256d> b){
+            __m256d endResult;
             for(auto i = 0; i != a.size()/2; i++){
-                __m256 resL = _mm256_cmp_ps(a[i], b[i], _CMP_LT_OS);
-                __m256 resH = _mm256_cmp_ps(a[a.size()/2 + i], b[a.size()/2 + i], _CMP_GT_OS);
-                __m256 tempRes = _mm256_kor(resL, resH);
-                endResult = _mm256_kor(endResult, tempRes);
-                if(endResult == 65535){
+                __m256d resL = _mm256_cmp_pd(a[i], b[i], _CMP_LT_OS);
+                __m256d resH = _mm256_cmp_pd(a[a.size()/2 + i], b[a.size()/2 + i], _CMP_GT_OS);
+                __m256d tempRes = _mm256_or_pd(resL, resH);
+                endResult = _mm256_or_pd(endResult, tempRes);
+                __m256d all_bits_set = _mm256_set1_pd(-nan(""));
+                
+                if(_mm256_testc_pd(endResult, all_bits_set) == 255){
                     break;
                 }
             }
