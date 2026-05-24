@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <x86intrin.h>
 #include <thread>
 
@@ -28,51 +29,68 @@ class polygon{
 
 class AABB : public polygon{
     public:
-        float _x_min, _y_min, _z_min;
-        float _x_max, _y_max, _z_max;
-        float _x_centroid, _y_centroid, _z_centroid;
+        // _x/_y/_z min/max/centroid inherited from polygon — not redeclared here
         float _x_range, _y_range, _z_range;
 
-    AABB(point p_min, point p_max)
-        : _x_min(p_min._x), _y_min(p_min._y), _z_min(p_min._z),
-        _x_max(p_max._x), _y_max(p_max._y), _z_max(p_max._z) {
+    AABB(point p_min, point p_max) {
+        // Assigned in body because these are inherited members, not direct members
+        _x_min = p_min._x; _y_min = p_min._y; _z_min = p_min._z;
+        _x_max = p_max._x; _y_max = p_max._y; _z_max = p_max._z;
 
-            /* Serialised CW Storage of mesh's points starting from the bottom most layer
-                in the front view for the global coordinate system.
-            */
-            for(auto i : std::vector<float>{_z_min, _z_max}){
-                points.push_back(point(_x_min, _y_min, i));
-                points.push_back(point(_x_max, _y_min, i));
-                points.push_back(point(_x_max, _y_max, i));
-                points.push_back(point(_x_min, _y_max, i));
-            }
-            _x_centroid = _x_min + (_x_max - _x_min)/2; 
-            _y_centroid = _y_min + (_y_max - _y_min)/2; 
-            _z_centroid = _z_min + (_z_max - _z_min)/2; 
+        /* Serialised CW Storage of mesh's points starting from the bottom most layer
+           in the front view for the global coordinate system. */
+        for(auto i : std::vector<float>{_z_min, _z_max}){
+            points.push_back(point(_x_min, _y_min, i));
+            points.push_back(point(_x_max, _y_min, i));
+            points.push_back(point(_x_max, _y_max, i));
+            points.push_back(point(_x_min, _y_max, i));
+        }
+        _x_centroid = _x_min + (_x_max - _x_min) / 2.0f;
+        _y_centroid = _y_min + (_y_max - _y_min) / 2.0f;
+        _z_centroid = _z_min + (_z_max - _z_min) / 2.0f;
+        _x_range = _x_max - _x_min;
+        _y_range = _y_max - _y_min;
+        _z_range = _z_max - _z_min;
+    }
 
-        }
+    void update_properties(point p, int idx) override{
+        this->points[idx] = std::move(p);
+    }
 
-        void update_properties(point p, int idx) override{
-            this->points[idx] = std::move(p);
-        }
+    polygon* return_object_pointer() override{
+        return this;
+    }
 
-        polygon* return_object_pointer() override{
-            return this;
-        }
+    // Expands this AABB in-place to the union of itself and p2.
+    polygon& operator+(polygon& p2) override {
+        _x_min = std::min(_x_min, p2._x_min);
+        _y_min = std::min(_y_min, p2._y_min);
+        _z_min = std::min(_z_min, p2._z_min);
+        _x_max = std::max(_x_max, p2._x_max);
+        _y_max = std::max(_y_max, p2._y_max);
+        _z_max = std::max(_z_max, p2._z_max);
+        _x_centroid = _x_min + (_x_max - _x_min) / 2.0f;
+        _y_centroid = _y_min + (_y_max - _y_min) / 2.0f;
+        _z_centroid = _z_min + (_z_max - _z_min) / 2.0f;
+        _x_range = _x_max - _x_min;
+        _y_range = _y_max - _y_min;
+        _z_range = _z_max - _z_min;
+        return *this;
+    }
 
-        float volume() override{
-            return (_x_max-_x_min)*(_y_max - _y_min)*(_z_max - _z_min);
-        }
-        
-        bool contains(point *p) override{ 
-            return (p->_x < this->_x_max && p->_x > this->_x_min)&&
-                   (p->_y < this->_y_max && p->_y > this->_y_min)&&
-                   (p->_z < this->_z_max && p->_z > this->_z_min);
-        }
+    float volume() override{
+        return (_x_max - _x_min) * (_y_max - _y_min) * (_z_max - _z_min);
+    }
 
-        float surface_area() override{
-            return 2*((_x_max - _x_min)*(_y_max - _y_min) + 
-                      (_y_max - _y_min)*(_z_max - _z_min) +
-                      (_x_max - _x_min)*(_z_max - _z_min));
-        }
+    bool contains(point *p) override{
+        return (p->_x < _x_max && p->_x > _x_min) &&
+               (p->_y < _y_max && p->_y > _y_min) &&
+               (p->_z < _z_max && p->_z > _z_min);
+    }
+
+    float surface_area() override{
+        return 2.0f * ((_x_max - _x_min) * (_y_max - _y_min) +
+                       (_y_max - _y_min) * (_z_max - _z_min) +
+                       (_x_max - _x_min) * (_z_max - _z_min));
+    }
 };

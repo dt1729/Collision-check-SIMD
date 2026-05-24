@@ -1,0 +1,110 @@
+CHANGELOG
+=========
+
+All notable changes to this project are documented here.
+
+─────────────────────────────────────────────────────────────────────────────
+2026-05-24
+─────────────────────────────────────────────────────────────────────────────
+
+Runtime SIMD dispatch (SIMDEngine)
+  - Added SIMDEngine struct that detects the widest available SIMD ISA at
+    runtime using __builtin_cpu_supports: SSE4 (4 floats/reg), AVX2 (8),
+    AVX-512 (16).
+  - leaf_threshold is set to lane_width so leaves fill exactly one register.
+  - BVH reads simd_engine.leaf_threshold in create_BVH and _build_soa; no
+    recompilation needed when moving between ISA levels.
+
+Struct-of-Arrays (SoA) memory layout for leaf bounds
+  - Added six flat float arrays to BVH: _soa_xmin/ymin/zmin/xmax/ymax/zmax.
+  - Filled depth-first during build() after tree construction.
+  - Padded to a multiple of 16 floats (AVX-512 width) with non-overlapping
+    sentinel values (xmin=+inf, xmax=-inf) so SIMD loops never need a
+    remainder branch or bounds check.
+  - At leaf level, b-side bounds are loaded with _mm_loadu_ps (SSE4),
+    _mm256_loadu_ps (AVX2), or _mm512_loadu_ps (AVX-512) — true contiguous
+    SIMD loads replacing the previous _mm_set_ps scalar gathers.
+
+Dispatched leaf check (_leaf_sse4 / _leaf_avx2 / _leaf_avx512)
+  - Each variant broadcasts one a-object across all W lanes with _set1_ps,
+    then loads W b-objects in one instruction from SoA.
+  - Overlap mask processed with mask &= mask-1 (clear lowest set bit) loop
+    to emit exactly one result per colliding pair.
+  - _leaf_avx512 guarded by #if defined(__AVX512F__).
+  - _leaf_simd dispatches to the right variant once per traversal entry;
+    no per-pair branch.
+
+Iterative BVH traversal (stack-based, no recursion)
+  - BVHtraversal and BVHtraversal_simd converted from recursive to iterative
+    using an explicit std::vector stack (reserve(128)).
+  - Eliminates ~2.7M function-call frames for a full scan of 227k pairs on
+    a 10k-object scene, removing call-stack push/pop overhead entirely.
+  - Early-exit (findAll=false) is a plain return anywhere in the loop rather
+    than unwinding 12 levels of call stack.
+
+4-pair batched internal-node check (checkOverlap_batch4)
+  - Binary tree inner×inner crossing always produces exactly 4 candidate
+    pairs (2 children × 2 children).
+  - All 4 are packed into SSE __m128 registers with _mm_set_ps and checked
+    in one call, replacing 4 sequential checkOverlap_simd calls.
+  - Returns a 4-bit mask; only overlapping pairs are pushed onto the stack.
+
+Output-parameter traversal refactor
+  - BVHtraversal and BVHtraversal_simd changed from return-by-value to
+    void with std::vector<pair<node*,node*>>& result parameter.
+  - Eliminates the O(pairs × depth) recursive result.insert copies that
+    caused the previous full-scan to be O(n^2) in result size.
+
+node struct improvements
+  - _objects changed from unordered_map to vector<pair<polygon*,bool>> so
+    objects can be sorted by centroid for the spatial split.
+  - _soa_first / _soa_last added for SoA index range at each leaf.
+  - isLeaf() / isSIMDLeaf() predicates added.
+  - Split axis chosen by longest bounding-box range (X/Y/Z).
+  - Objects sorted by centroid along split axis using GNU parallel sort.
+
+create_BVH fixes
+  - Bounding box for each child computed per-axis independently (was
+    previously using a single &&-combined condition, missing updates).
+  - Degenerate split guard: if all objects land on one side, the node
+    becomes a leaf to prevent infinite recursion.
+  - Leaf threshold driven by simd_engine.leaf_threshold.
+
+checkOverlap_simd
+  - Uses _mm_loadu_ps on contiguous polygon fields (_x_min … _x_max) for
+    two real SIMD loads per AABB instead of six scalar comparisons.
+  - Lane 3 is a known don't-care; masked with & 0x7 on the movemask result.
+
+AABB / polygon fixes
+  - Removed duplicate field declarations in AABB that shadowed the polygon
+    base class fields (_x_min, _y_min, etc.).
+  - AABB constructor assigns inherited fields in body (required because they
+    are inherited, not direct members).
+  - Added surface_area() override.
+  - operator+ implemented as in-place union expansion.
+
+BVHintersection_SIMD fixes
+  - endResult initialised to _mm256_setzero_pd() (was uninitialised).
+  - _mm256_testc_pd early-exit comparison corrected to == 1 (was == 255,
+    an AVX-512 mask convention ported incorrectly).
+
+Test suite (src/test_AABB.cc)
+  - Full rewrite: AABB properties, contains, union, BVH overlapping pair,
+    BVH separate pair, BVHintersection_SIMD unit tests.
+  - bench_min template: runs f() REPS times across TRIALS trials and
+    returns the minimum total time — eliminates OS scheduling noise.
+  - Benchmark: 10k random objects (vol >= 1000) in [0,100]^3, comparing
+    scalar vs SIMD for both early-exit and full-scan modes.
+  - Prints detected SIMD engine name and leaf threshold at benchmark start.
+
+─────────────────────────────────────────────────────────────────────────────
+Performance summary (10k objects, vol>=1000, [0,100]^3, -O3 -march=native)
+─────────────────────────────────────────────────────────────────────────────
+  SIMD engine detected: AVX2 (8 floats/reg), leaf threshold = 8
+  Colliding pairs: 227,300
+
+  Early-exit query
+    Scalar:  ~0.10 us   SIMD: ~0.09 us   speedup: ~1.20x
+
+  Full scan (all pairs)
+    Scalar: ~5300 us    SIMD: ~3530 us   speedup: ~1.50x

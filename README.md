@@ -1,5 +1,30 @@
 ### SIMD accelerated BVH
 
+## Compilation
+
+Requires GCC with OpenMP and C++17. The `-march=native` flag enables the
+widest SIMD ISA available on the build machine; the runtime `SIMDEngine`
+then selects the matching code path (SSE4 / AVX2 / AVX-512) automatically.
+
+```bash
+# optimised build + run tests
+g++ -O3 -march=native -fopenmp -std=c++17 -I. src/test_AABB.cc -o test_AABB && ./test_AABB
+
+# debug build (no optimisation, adds -g for gdb)
+g++ -g -march=native -fopenmp -std=c++17 -I. src/test_AABB.cc -o test_AABB_dbg && ./test_AABB_dbg
+```
+
+To target a specific SIMD level instead of the host CPU replace
+`-march=native` with one of:
+
+| Flag              | SIMD level | Leaf width |
+|-------------------|------------|------------|
+| `-march=native`   | auto-detect| 4 / 8 / 16 |
+| `-mavx2`          | AVX2       | 8 floats   |
+| `-msse4.1`        | SSE4       | 4 floats   |
+
+
+
 [Basic Bounding Value Heirarchy read](https://pbr-book.org/3ed-2018/Primitives_and_Intersection_Acceleration/Bounding_Volume_Hierarchies)
 
 [SIMD Intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html)
